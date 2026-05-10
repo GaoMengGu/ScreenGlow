@@ -20,6 +20,7 @@ jobs:
       PROJECT_FILE: ScreenGlow.csproj
       APP_NAME: ScreenGlow
       RUNTIME_ID: win-x64
+      VERSION_PREFIX: 0.1
 
     steps:
       - name: Checkout
@@ -30,6 +31,17 @@ jobs:
         with:
           dotnet-version: 3.1.x
 
+      - name: Compute version
+        id: version
+        shell: pwsh
+        run: |
+          $version = "$env:VERSION_PREFIX.${{ github.run_number }}"
+          $sha = "${{ github.sha }}".Substring(0, 7)
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "tag=v$version" >> $env:GITHUB_OUTPUT
+          "asset=$env:APP_NAME-v$version-$env:RUNTIME_ID.zip" >> $env:GITHUB_OUTPUT
+          "informational=$version+$sha" >> $env:GITHUB_OUTPUT
+
       - name: Publish
         run: >
           dotnet publish $env:PROJECT_FILE
@@ -38,29 +50,44 @@ jobs:
           --self-contained false
           --output publish\$env:APP_NAME
           /p:PublishSingleFile=true
+          /p:SelfContained=false
+          /p:PublishSelfContained=false
           /p:DebugType=None
           /p:DebugSymbols=false
           /p:IncludeSymbols=false
           /p:IncludeSource=false
+          /p:Version=${{ steps.version.outputs.version }}
+          /p:AssemblyVersion=${{ steps.version.outputs.version }}.0
+          /p:FileVersion=${{ steps.version.outputs.version }}.0
+          /p:InformationalVersion=${{ steps.version.outputs.informational }}
 
       - name: Remove non-runtime files
         shell: pwsh
         run: |
           Get-ChildItem publish\$env:APP_NAME -Recurse -Include *.pdb,*.xml,*.log,*.tmp -File | Remove-Item -Force
 
+      - name: Show release contents
+        shell: pwsh
+        run: |
+          Get-ChildItem publish\$env:APP_NAME -File | Sort-Object Name | Format-Table Name,Length
+          $total = (Get-ChildItem publish\$env:APP_NAME -File | Measure-Object Length -Sum).Sum
+          "Total bytes: $total"
+
       - name: Create archive
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path artifacts | Out-Null
-          Compress-Archive -Path "publish\$env:APP_NAME\*" -DestinationPath "artifacts\$env:APP_NAME-$env:RUNTIME_ID.zip" -Force
+          Compress-Archive -Path "publish\$env:APP_NAME\*" -DestinationPath "artifacts\${{ steps.version.outputs.asset }}" -Force
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: build-${{ github.run_number }}
-          name: ScreenGlow build ${{ github.run_number }}
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: ScreenGlow ${{ steps.version.outputs.tag }}
           body: |
-            Automated Windows build from main.
+            Automated Windows framework-dependent build from main.
+
+            This small portable package requires the .NET Desktop Runtime 3.1 x64 on Windows.
 
             Commit: ${{ github.sha }}
-          files: artifacts/ScreenGlow-win-x64.zip
+          files: artifacts/${{ steps.version.outputs.asset }}
