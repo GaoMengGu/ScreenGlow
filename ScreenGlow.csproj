@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <AssemblyName>ScreenGlow</AssemblyName>
+    <RootNamespace>ScreenGlow</RootNamespace>
+    <ApplicationIcon>assets\ScreenGlow.ico</ApplicationIcon>
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
+    <SatelliteResourceLanguages>zh-CN;en-US</SatelliteResourceLanguages>
+  </PropertyGroup>
+</Project>

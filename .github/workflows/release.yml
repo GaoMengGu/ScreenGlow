@@ -1,0 +1,66 @@
+name: Build Release
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build Windows release
+    runs-on: windows-latest
+
+    env:
+      DOTNET_NOLOGO: true
+      DOTNET_CLI_TELEMETRY_OPTOUT: true
+      PROJECT_FILE: ScreenGlow.csproj
+      APP_NAME: ScreenGlow
+      RUNTIME_ID: win-x64
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 3.1.x
+
+      - name: Publish
+        run: >
+          dotnet publish $env:PROJECT_FILE
+          --configuration Release
+          --runtime $env:RUNTIME_ID
+          --self-contained false
+          --output publish\$env:APP_NAME
+          /p:PublishSingleFile=true
+          /p:DebugType=None
+          /p:DebugSymbols=false
+          /p:IncludeSymbols=false
+          /p:IncludeSource=false
+
+      - name: Remove non-runtime files
+        shell: pwsh
+        run: |
+          Get-ChildItem publish\$env:APP_NAME -Recurse -Include *.pdb,*.xml,*.log,*.tmp -File | Remove-Item -Force
+
+      - name: Create archive
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path artifacts | Out-Null
+          Compress-Archive -Path "publish\$env:APP_NAME\*" -DestinationPath "artifacts\$env:APP_NAME-$env:RUNTIME_ID.zip" -Force
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: ScreenGlow build ${{ github.run_number }}
+          body: |
+            Automated Windows build from main.
+
+            Commit: ${{ github.sha }}
+          files: artifacts/ScreenGlow-win-x64.zip
