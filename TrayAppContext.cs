@@ -14,6 +14,7 @@ namespace ScreenGlow
         public TrayAppContext()
         {
             _config = AppConfig.Load();
+            RepairStartupRegistration();
             _client = new Esp8266Client();
             _notifyIcon = CreateNotifyIcon();
             _notifyIcon.Visible = true;
@@ -91,8 +92,12 @@ namespace ScreenGlow
 
             var startupItem = new ToolStripMenuItem("开机自动启动")
             {
-                Checked = StartupManager.IsEnabled()
+                Checked = StartupManager.IsEnabledForCurrentExecutable()
             };
+            if (StartupManager.NeedsPathRepair())
+            {
+                startupItem.Text = "开机自动启动（点击修复路径）";
+            }
             startupItem.Click += delegate { ToggleStartup(); };
             menu.Items.Add(startupItem);
 
@@ -196,7 +201,7 @@ namespace ScreenGlow
         {
             try
             {
-                var enabled = !StartupManager.IsEnabled();
+                var enabled = !StartupManager.IsEnabledForCurrentExecutable();
                 StartupManager.SetEnabled(enabled);
                 _config.StartWithWindows = enabled;
                 _config.Save();
@@ -204,6 +209,23 @@ namespace ScreenGlow
             catch (Exception ex)
             {
                 MessageBox.Show("开机启动设置失败：" + ex.Message, "ScreenGlow", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+        }
+
+        private void RepairStartupRegistration()
+        {
+            try
+            {
+                if (_config.StartWithWindows || StartupManager.NeedsPathRepair())
+                {
+                    StartupManager.SetEnabled(true);
+                    _config.StartWithWindows = true;
+                    _config.Save();
+                }
+            }
+            catch
+            {
+                // The tray menu still lets the user retry and see the concrete error.
             }
         }
 

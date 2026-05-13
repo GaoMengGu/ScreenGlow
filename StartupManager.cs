@@ -11,9 +11,25 @@ namespace ScreenGlow
 
         public static bool IsEnabled()
         {
+            return !string.IsNullOrWhiteSpace(GetRegisteredCommand());
+        }
+
+        public static bool IsEnabledForCurrentExecutable()
+        {
+            var registeredPath = GetRegisteredExecutablePath();
+            return registeredPath.Equals(Application.ExecutablePath, StringComparison.OrdinalIgnoreCase);
+        }
+
+        public static bool NeedsPathRepair()
+        {
+            return IsEnabled() && !IsEnabledForCurrentExecutable();
+        }
+
+        public static string GetRegisteredCommand()
+        {
             using (var key = Registry.CurrentUser.OpenSubKey(RunKeyPath, false))
             {
-                return key != null && key.GetValue(ValueName) != null;
+                return key == null ? string.Empty : Convert.ToString(key.GetValue(ValueName));
             }
         }
 
@@ -28,13 +44,36 @@ namespace ScreenGlow
 
                 if (enabled)
                 {
-                    key.SetValue(ValueName, Quote(Application.ExecutablePath), RegistryValueKind.String);
+                    key.SetValue(ValueName, BuildCurrentCommand(), RegistryValueKind.String);
                 }
                 else
                 {
                     key.DeleteValue(ValueName, false);
                 }
             }
+        }
+
+        private static string GetRegisteredExecutablePath()
+        {
+            var command = GetRegisteredCommand().Trim();
+            if (command.Length == 0)
+            {
+                return string.Empty;
+            }
+
+            if (command[0] == '"')
+            {
+                var closeQuote = command.IndexOf('"', 1);
+                return closeQuote > 1 ? command.Substring(1, closeQuote - 1) : string.Empty;
+            }
+
+            var firstSpace = command.IndexOf(' ');
+            return firstSpace > 0 ? command.Substring(0, firstSpace) : command;
+        }
+
+        private static string BuildCurrentCommand()
+        {
+            return Quote(Application.ExecutablePath);
         }
 
         private static string Quote(string value)
