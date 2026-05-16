@@ -9,24 +9,22 @@ namespace ScreenGlow
     {
         private const string RunKeyPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
         private const string ValueName = "ScreenGlow";
-        private const string StartupScriptName = "ScreenGlow Startup.cmd";
+        private const string LegacyStartupScriptName = "ScreenGlow Startup.cmd";
         private const string LegacyShortcutName = "ScreenGlow.lnk";
 
         public static bool IsEnabled()
         {
-            return !string.IsNullOrWhiteSpace(GetRegisteredCommand()) ||
-                   File.Exists(GetStartupScriptPath()) ||
-                   File.Exists(GetLegacyShortcutPath());
+            return !string.IsNullOrWhiteSpace(GetRegisteredCommand()) || HasLegacyStartupFile();
         }
 
         public static bool IsEnabledForCurrentExecutable()
         {
-            return IsRegistryEnabledForCurrentExecutable() || IsStartupScriptEnabledForCurrentExecutable();
+            return PathsEqual(GetRegisteredExecutablePath(), Application.ExecutablePath);
         }
 
         public static bool NeedsPathRepair()
         {
-            return IsEnabled() && !IsEnabledForCurrentExecutable();
+            return IsEnabled() && (!IsEnabledForCurrentExecutable() || HasLegacyStartupFile());
         }
 
         public static string GetRegisteredCommand()
@@ -49,34 +47,14 @@ namespace ScreenGlow
                 if (enabled)
                 {
                     key.SetValue(ValueName, BuildCurrentCommand(), RegistryValueKind.String);
-                    CreateStartupScript();
-                    DeleteLegacyShortcut();
+                    DeleteLegacyStartupFiles();
                 }
                 else
                 {
                     key.DeleteValue(ValueName, false);
-                    DeleteStartupScript();
-                    DeleteLegacyShortcut();
+                    DeleteLegacyStartupFiles();
                 }
             }
-        }
-
-        private static bool IsRegistryEnabledForCurrentExecutable()
-        {
-            var registeredPath = GetRegisteredExecutablePath();
-            return registeredPath.Equals(Application.ExecutablePath, StringComparison.OrdinalIgnoreCase);
-        }
-
-        private static bool IsStartupScriptEnabledForCurrentExecutable()
-        {
-            var scriptPath = GetStartupScriptPath();
-            if (!File.Exists(scriptPath))
-            {
-                return false;
-            }
-
-            var script = File.ReadAllText(scriptPath);
-            return script.IndexOf(Application.ExecutablePath, StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         private static string GetRegisteredExecutablePath()
@@ -86,6 +64,8 @@ namespace ScreenGlow
             {
                 return string.Empty;
             }
+
+            command = Environment.ExpandEnvironmentVariables(command);
 
             if (command[0] == '"')
             {
@@ -102,41 +82,28 @@ namespace ScreenGlow
             return Quote(Application.ExecutablePath);
         }
 
-        private static string GetStartupScriptPath()
+        private static bool HasLegacyStartupFile()
         {
-            return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Startup), StartupScriptName);
+            return File.Exists(GetLegacyStartupScriptPath()) || File.Exists(GetLegacyShortcutPath());
         }
 
-        private static void CreateStartupScript()
+        private static void DeleteLegacyStartupFiles()
         {
-            var scriptPath = GetStartupScriptPath();
-            Directory.CreateDirectory(Path.GetDirectoryName(scriptPath));
-
-            var lines = new[]
-            {
-                "@echo off",
-                "start \"\" /D " + Quote(AppDomain.CurrentDomain.BaseDirectory.TrimEnd('\\')) + " " + Quote(Application.ExecutablePath)
-            };
-
-            File.WriteAllLines(scriptPath, lines);
+            DeleteFile(GetLegacyStartupScriptPath());
+            DeleteFile(GetLegacyShortcutPath());
         }
 
-        private static void DeleteStartupScript()
+        private static void DeleteFile(string path)
         {
-            var scriptPath = GetStartupScriptPath();
-            if (File.Exists(scriptPath))
+            if (File.Exists(path))
             {
-                File.Delete(scriptPath);
+                File.Delete(path);
             }
         }
 
-        private static void DeleteLegacyShortcut()
+        private static string GetLegacyStartupScriptPath()
         {
-            var shortcutPath = GetLegacyShortcutPath();
-            if (File.Exists(shortcutPath))
-            {
-                File.Delete(shortcutPath);
-            }
+            return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Startup), LegacyStartupScriptName);
         }
 
         private static string GetLegacyShortcutPath()
@@ -144,9 +111,26 @@ namespace ScreenGlow
             return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Startup), LegacyShortcutName);
         }
 
+        private static bool PathsEqual(string left, string right)
+        {
+            if (string.IsNullOrWhiteSpace(left) || string.IsNullOrWhiteSpace(right))
+            {
+                return false;
+            }
+
+            try
+            {
+                return Path.GetFullPath(left).Equals(Path.GetFullPath(right), StringComparison.OrdinalIgnoreCase);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
         private static string Quote(string value)
         {
-            return "\"" + value.Trim('"') + "\"";
+            return "\"" + value + "\"";
         }
     }
 }

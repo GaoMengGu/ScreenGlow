@@ -94,10 +94,6 @@ namespace ScreenGlow
             {
                 Checked = StartupManager.IsEnabledForCurrentExecutable()
             };
-            if (StartupManager.NeedsPathRepair())
-            {
-                startupItem.Text = "开机自动启动（点击修复路径）";
-            }
             startupItem.Click += delegate { ToggleStartup(); };
             menu.Items.Add(startupItem);
 

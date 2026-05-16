@@ -9,7 +9,7 @@
 - 某个滑块设为 `0` 时，只关闭对应的灯。
 - 某个滑块设为 `1-100` 时，只调节对应灯，并自动换算为 ESPHome 的 `1-255` 亮度。
 - 滑块左侧显示每个灯的 emoji。
-- 右键托盘图标：配置设备、实体、开机启动和退出。
+- 右键托盘图标：配置设备、实体、开机自动启动和退出。
 
 ## 右键菜单
 
@@ -20,7 +20,7 @@
 - 实体设置：只有填写实体名后才显示，每个实体可修改显示名称，支持 emoji。
 - 退出。
 
-开机启动会同时写入当前用户的注册表启动项和“启动”文件夹脚本，提升登录后自动启动的可靠性。用户可以把 `ScreenGlow.exe` 放在任意位置；在那个位置运行并勾选开机启动后，启动项会指向当前这个 exe。如果移动了 `ScreenGlow.exe` 的位置，重新运行一次程序后会自动修复开机启动路径；也可以右键托盘图标点击 `开机自动启动（点击修复路径）` 手动修复。
+开机自动启动会指向当前运行的 `ScreenGlow.exe`。用户可以把程序放在任意文件夹；在新位置运行并勾选开机自动启动后，Windows 登录时会从这个位置启动。如果移动了 `ScreenGlow.exe`，重新运行一次程序即可自动修复启动路径。
 
 设备地址例如：
 
@@ -52,7 +52,7 @@ dotnet build -c Release
 本地最小发布：
 
 ```powershell
-dotnet publish ScreenGlow.csproj -c Release -r win-x64 --self-contained false -o publish\ScreenGlow /p:PublishSingleFile=true /p:DebugType=None /p:DebugSymbols=false
+dotnet publish ScreenGlow.csproj -c Release -r win-x64 -o publish\ScreenGlow
 ```
 
 发布产物为单个 exe：

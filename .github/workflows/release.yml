@@ -49,13 +49,6 @@ jobs:
           --runtime $env:RUNTIME_ID
           --self-contained false
           --output publish\$env:APP_NAME
-          /p:PublishSingleFile=true
-          /p:SelfContained=false
-          /p:PublishSelfContained=false
-          /p:DebugType=None
-          /p:DebugSymbols=false
-          /p:IncludeSymbols=false
-          /p:IncludeSource=false
           /p:Version=${{ steps.version.outputs.version }}
           /p:AssemblyVersion=${{ steps.version.outputs.version }}.0
           /p:FileVersion=${{ steps.version.outputs.version }}.0
