@@ -9,16 +9,6 @@ namespace ScreenGlow
     {
         private readonly HttpClient _httpClient = new HttpClient();
 
-        public async Task SendBrightnessAsync(AppConfig config, int brightnessPercent, CancellationToken cancellationToken)
-        {
-            config.Normalize();
-
-            foreach (var entity in config.LightEntities)
-            {
-                await SendBrightnessAsync(config, entity, brightnessPercent, cancellationToken).ConfigureAwait(false);
-            }
-        }
-
         public async Task SendBrightnessAsync(AppConfig config, string entity, int brightnessPercent, CancellationToken cancellationToken)
         {
             config.Normalize();

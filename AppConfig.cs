@@ -13,9 +13,7 @@ namespace ScreenGlow
         public string DeviceUrl { get; set; } = "http://your-device.local/";
         public string[] LightEntities { get; set; } = new string[0];
         public Dictionary<string, string> LightDisplayNames { get; set; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        public int BrightnessPercent { get; set; } = 100;
         public Dictionary<string, int> EntityBrightnessPercent { get; set; } = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-        public Dictionary<string, int> EntityLastOnBrightnessPercent { get; set; } = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         public int RequestTimeoutMs { get; set; } = 2500;
         public bool StartWithWindows { get; set; }
 
@@ -124,7 +122,6 @@ namespace ScreenGlow
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToArray();
 
-            BrightnessPercent = ClampPercent(BrightnessPercent);
             RequestTimeoutMs = Math.Max(500, RequestTimeoutMs);
 
             if (EntityBrightnessPercent == null)
@@ -140,34 +137,10 @@ namespace ScreenGlow
             {
                 if (!EntityBrightnessPercent.ContainsKey(entity))
                 {
-                    EntityBrightnessPercent[entity] = BrightnessPercent;
+                    EntityBrightnessPercent[entity] = MaxBrightnessPercent;
                 }
 
                 EntityBrightnessPercent[entity] = ClampPercent(EntityBrightnessPercent[entity]);
-            }
-
-            if (EntityLastOnBrightnessPercent == null)
-            {
-                EntityLastOnBrightnessPercent = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-            }
-            else
-            {
-                EntityLastOnBrightnessPercent = new Dictionary<string, int>(EntityLastOnBrightnessPercent, StringComparer.OrdinalIgnoreCase);
-            }
-
-            foreach (var entity in LightEntities)
-            {
-                var current = EntityBrightnessPercent[entity];
-                if (!EntityLastOnBrightnessPercent.ContainsKey(entity))
-                {
-                    EntityLastOnBrightnessPercent[entity] = current > 0 ? current : 60;
-                }
-
-                EntityLastOnBrightnessPercent[entity] = ClampPercent(EntityLastOnBrightnessPercent[entity]);
-                if (EntityLastOnBrightnessPercent[entity] == 0)
-                {
-                    EntityLastOnBrightnessPercent[entity] = 60;
-                }
             }
 
             if (LightDisplayNames == null)
@@ -202,76 +175,13 @@ namespace ScreenGlow
                 return ClampPercent(value);
             }
 
-            return BrightnessPercent;
+            return MaxBrightnessPercent;
         }
 
         public void SetEntityBrightness(string entity, int brightnessPercent)
         {
             Normalize();
-            var clamped = ClampPercent(brightnessPercent);
-            EntityBrightnessPercent[entity] = clamped;
-            if (clamped > 0)
-            {
-                EntityLastOnBrightnessPercent[entity] = clamped;
-            }
-
-            if (LightEntities.Length > 0)
-            {
-                BrightnessPercent = (int)Math.Round(LightEntities.Average(name => GetEntityBrightness(name)));
-            }
-            else
-            {
-                BrightnessPercent = ClampPercent(brightnessPercent);
-            }
-        }
-
-        public void SetAllBrightness(int brightnessPercent)
-        {
-            Normalize();
-            var clamped = ClampPercent(brightnessPercent);
-            BrightnessPercent = clamped;
-
-            foreach (var entity in LightEntities)
-            {
-                EntityBrightnessPercent[entity] = clamped;
-                if (clamped > 0)
-                {
-                    EntityLastOnBrightnessPercent[entity] = clamped;
-                }
-            }
-        }
-
-        public void SetPower(bool isOn)
-        {
-            Normalize();
-
-            foreach (var entity in LightEntities)
-            {
-                if (isOn)
-                {
-                    EntityBrightnessPercent[entity] = Math.Max(1, EntityLastOnBrightnessPercent[entity]);
-                }
-                else
-                {
-                    var current = EntityBrightnessPercent[entity];
-                    if (current > 0)
-                    {
-                        EntityLastOnBrightnessPercent[entity] = current;
-                    }
-
-                    EntityBrightnessPercent[entity] = 0;
-                }
-            }
-
-            BrightnessPercent = LightEntities.Length > 0
-                ? (int)Math.Round(LightEntities.Average(name => EntityBrightnessPercent[name]))
-                : 0;
-        }
-
-        public bool IsAnyLightOn()
-        {
-            Normalize();
-            return LightEntities.Any(entity => EntityBrightnessPercent[entity] > 0);
+            EntityBrightnessPercent[entity] = ClampPercent(brightnessPercent);
         }
 
         public string GetDisplayName(string entity)
@@ -289,41 +199,6 @@ namespace ScreenGlow
         {
             Normalize();
             LightDisplayNames[entity] = string.IsNullOrWhiteSpace(displayName) ? DefaultDisplayName(entity) : displayName.Trim();
-        }
-
-        public void UpdateLightEntity(int index, string newEntity)
-        {
-            Normalize();
-
-            if (index < 0 || index >= LightEntities.Length || string.IsNullOrWhiteSpace(newEntity))
-            {
-                return;
-            }
-
-            var oldEntity = LightEntities[index];
-            var cleanEntity = newEntity.Trim().Trim('/');
-            if (cleanEntity.Length == 0 || oldEntity.Equals(cleanEntity, StringComparison.OrdinalIgnoreCase))
-            {
-                return;
-            }
-
-            var brightness = GetEntityBrightness(oldEntity);
-            var lastOnBrightness = EntityLastOnBrightnessPercent.ContainsKey(oldEntity)
-                ? EntityLastOnBrightnessPercent[oldEntity]
-                : Math.Max(1, brightness);
-            var displayName = GetDisplayName(oldEntity);
-
-            LightEntities[index] = cleanEntity;
-            LightEntities = LightEntities
-                .Where(entity => !string.IsNullOrWhiteSpace(entity))
-                .Select(entity => entity.Trim().Trim('/'))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToArray();
-
-            EntityBrightnessPercent[cleanEntity] = brightness;
-            EntityLastOnBrightnessPercent[cleanEntity] = lastOnBrightness;
-            LightDisplayNames[cleanEntity] = displayName;
-            Normalize();
         }
 
         public static int ClampPercent(int value)
