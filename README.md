@@ -49,13 +49,13 @@ POST /light/<entity>/turn_off
 dotnet build -c Release
 ```
 
-本地最小发布：
+本地自包含发布：
 
 ```powershell
-dotnet publish ScreenGlow.csproj -c Release -r win-x64 -o publish\ScreenGlow
+dotnet publish ScreenGlow.csproj -c Release -r win-x64 --self-contained true -o publish\ScreenGlow
 ```
 
-发布产物为单个 exe：
+发布产物为单个 exe，已包含 .NET Desktop Runtime，不需要在目标电脑另行安装 .NET：
 
 ```text
 publish\ScreenGlow\ScreenGlow.exe
@@ -69,4 +69,4 @@ publish\ScreenGlow\ScreenGlow.exe
 .github/workflows/release.yml
 ```
 
-推送到 `main` 分支时会自动构建 `win-x64` 版本，并上传带版本号的 `ScreenGlow-v*-win-x64.zip` 到 GitHub Release。发布包不会包含 PDB、日志或本地配置文件。
+推送到 `main` 分支时会自动构建自包含 `win-x64` 版本，并上传带版本号的 `ScreenGlow-v*-win-x64.zip` 到 GitHub Release。发布包不会包含 PDB、日志或本地配置文件。

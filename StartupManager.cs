@@ -9,22 +9,23 @@ namespace ScreenGlow
     {
         private const string RunKeyPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
         private const string ValueName = "ScreenGlow";
-        private const string LegacyStartupScriptName = "ScreenGlow Startup.cmd";
+        private const string StartupScriptName = "ScreenGlow Startup.cmd";
         private const string LegacyShortcutName = "ScreenGlow.lnk";
 
         public static bool IsEnabled()
         {
-            return !string.IsNullOrWhiteSpace(GetRegisteredCommand()) || HasLegacyStartupFile();
+            return !string.IsNullOrWhiteSpace(GetRegisteredCommand()) || HasStartupScript() || HasLegacyShortcut();
         }
 
         public static bool IsEnabledForCurrentExecutable()
         {
-            return PathsEqual(GetRegisteredExecutablePath(), Application.ExecutablePath);
+            return PathsEqual(GetRegisteredExecutablePath(), Application.ExecutablePath) ||
+                IsStartupScriptForCurrentExecutable();
         }
 
         public static bool NeedsPathRepair()
         {
-            return IsEnabled() && (!IsEnabledForCurrentExecutable() || HasLegacyStartupFile());
+            return IsEnabled() && (!IsEnabledForCurrentExecutable() || HasLegacyShortcut());
         }
 
         public static string GetRegisteredCommand()
@@ -47,12 +48,13 @@ namespace ScreenGlow
                 if (enabled)
                 {
                     key.SetValue(ValueName, BuildCurrentCommand(), RegistryValueKind.String);
-                    DeleteLegacyStartupFiles();
+                    WriteStartupScript();
+                    DeleteLegacyShortcut();
                 }
                 else
                 {
                     key.DeleteValue(ValueName, false);
-                    DeleteLegacyStartupFiles();
+                    DeleteStartupFiles();
                 }
             }
         }
@@ -82,14 +84,54 @@ namespace ScreenGlow
             return Quote(Application.ExecutablePath);
         }
 
-        private static bool HasLegacyStartupFile()
+        private static bool HasStartupScript()
         {
-            return File.Exists(GetLegacyStartupScriptPath()) || File.Exists(GetLegacyShortcutPath());
+            return File.Exists(GetStartupScriptPath());
         }
 
-        private static void DeleteLegacyStartupFiles()
+        private static bool HasLegacyShortcut()
         {
-            DeleteFile(GetLegacyStartupScriptPath());
+            return File.Exists(GetLegacyShortcutPath());
+        }
+
+        private static bool IsStartupScriptForCurrentExecutable()
+        {
+            try
+            {
+                var scriptPath = GetStartupScriptPath();
+                if (!File.Exists(scriptPath))
+                {
+                    return false;
+                }
+
+                var script = Environment.ExpandEnvironmentVariables(File.ReadAllText(scriptPath));
+                return script.IndexOf(Application.ExecutablePath, StringComparison.OrdinalIgnoreCase) >= 0;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static void WriteStartupScript()
+        {
+            var path = GetStartupScriptPath();
+            Directory.CreateDirectory(Path.GetDirectoryName(path));
+            File.WriteAllLines(path, new[]
+            {
+                "@echo off",
+                "start \"\" " + Quote(Application.ExecutablePath)
+            });
+        }
+
+        private static void DeleteStartupFiles()
+        {
+            DeleteFile(GetStartupScriptPath());
+            DeleteLegacyShortcut();
+        }
+
+        private static void DeleteLegacyShortcut()
+        {
             DeleteFile(GetLegacyShortcutPath());
         }
 
@@ -101,9 +143,9 @@ namespace ScreenGlow
             }
         }
 
-        private static string GetLegacyStartupScriptPath()
+        private static string GetStartupScriptPath()
         {
-            return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Startup), LegacyStartupScriptName);
+            return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Startup), StartupScriptName);
         }
 
         private static string GetLegacyShortcutPath()

@@ -12,9 +12,12 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
     <Optimize>true</Optimize>
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)' == 'Release' And '$(RuntimeIdentifier)' != ''">
     <PublishSingleFile>true</PublishSingleFile>
-    <SelfContained>false</SelfContained>
-    <PublishSelfContained>false</PublishSelfContained>
+    <PublishSelfContained>true</PublishSelfContained>
     <PublishReadyToRun>false</PublishReadyToRun>
     <IncludeSymbols>false</IncludeSymbols>
     <IncludeSource>false</IncludeSource>

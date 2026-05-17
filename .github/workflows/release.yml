@@ -47,7 +47,7 @@ jobs:
           dotnet publish $env:PROJECT_FILE
           --configuration Release
           --runtime $env:RUNTIME_ID
-          --self-contained false
+          --self-contained true
           --output publish\$env:APP_NAME
           /p:Version=${{ steps.version.outputs.version }}
           /p:AssemblyVersion=${{ steps.version.outputs.version }}.0
@@ -78,9 +78,9 @@ jobs:
           tag_name: ${{ steps.version.outputs.tag }}
           name: ScreenGlow ${{ steps.version.outputs.tag }}
           body: |
-            Automated Windows framework-dependent build from main.
+            Automated Windows self-contained build from main.
 
-            This small portable package requires the .NET Desktop Runtime 3.1 x64 on Windows.
+            This portable package includes the .NET Desktop Runtime and does not require a separate .NET installation.
 
             Commit: ${{ github.sha }}
           files: artifacts/${{ steps.version.outputs.asset }}
