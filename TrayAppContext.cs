@@ -1,5 +1,7 @@
 using System;
 using System.Drawing;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace ScreenGlow
@@ -9,7 +11,9 @@ namespace ScreenGlow
         private readonly AppConfig _config;
         private readonly Esp8266Client _client;
         private readonly NotifyIcon _notifyIcon;
+        private readonly System.Windows.Forms.Timer _brightnessSyncTimer;
         private BrightnessPopupForm _brightnessPopup;
+        private bool _isSyncingBrightness;
 
         public TrayAppContext()
         {
@@ -18,6 +22,10 @@ namespace ScreenGlow
             _client = new Esp8266Client();
             _notifyIcon = CreateNotifyIcon();
             _notifyIcon.Visible = true;
+
+            _brightnessSyncTimer = new System.Windows.Forms.Timer();
+            _brightnessSyncTimer.Tick += async delegate { await SyncBrightnessFromDeviceAsync(); };
+            ScheduleBrightnessSync(250);
         }
 
         protected override void Dispose(bool disposing)
@@ -29,6 +37,8 @@ namespace ScreenGlow
                     _brightnessPopup.Dispose();
                 }
 
+                _brightnessSyncTimer.Stop();
+                _brightnessSyncTimer.Dispose();
                 _notifyIcon.Visible = false;
                 _notifyIcon.Dispose();
                 _client.Dispose();
@@ -180,6 +190,7 @@ namespace ScreenGlow
                 _config.DeviceUrl = value;
                 _config.Save();
                 UpdateTrayText();
+                ScheduleBrightnessSync(250);
             }
         }
 
@@ -190,6 +201,8 @@ namespace ScreenGlow
                 _config.EntitiesText = value;
                 _config.Save();
                 UpdateTrayText();
+                RefreshBrightnessPopup();
+                ScheduleBrightnessSync(250);
             }
         }
 
@@ -238,6 +251,71 @@ namespace ScreenGlow
         private void UpdateTrayText()
         {
             _notifyIcon.Text = BuildTrayText();
+        }
+
+        private void RefreshBrightnessPopup()
+        {
+            if (_brightnessPopup != null && !_brightnessPopup.IsDisposed)
+            {
+                _brightnessPopup.RefreshFromConfig();
+            }
+        }
+
+        private void ScheduleBrightnessSync(int intervalMs)
+        {
+            _config.Normalize();
+            _brightnessSyncTimer.Stop();
+            _brightnessSyncTimer.Interval = Math.Max(250, intervalMs);
+            _brightnessSyncTimer.Start();
+        }
+
+        private async Task SyncBrightnessFromDeviceAsync()
+        {
+            if (_isSyncingBrightness)
+            {
+                return;
+            }
+
+            _brightnessSyncTimer.Stop();
+            _config.Normalize();
+
+            if (_config.LightEntities.Length == 0)
+            {
+                ScheduleBrightnessSync(_config.BrightnessSyncIntervalSeconds * 1000);
+                return;
+            }
+
+            _isSyncingBrightness = true;
+            var changed = false;
+
+            try
+            {
+                foreach (var entity in _config.LightEntities)
+                {
+                    var brightness = await _client.GetBrightnessAsync(_config, entity, CancellationToken.None);
+                    if (brightness.HasValue && _config.GetEntityBrightness(entity) != brightness.Value)
+                    {
+                        _config.SetEntityBrightness(entity, brightness.Value);
+                        changed = true;
+                    }
+                }
+
+                if (changed)
+                {
+                    _config.Save();
+                    UpdateTrayText();
+                    RefreshBrightnessPopup();
+                }
+            }
+            catch
+            {
+                // Keep the tray quiet; the next timer tick will retry.
+            }
+            finally
+            {
+                _isSyncingBrightness = false;
+                ScheduleBrightnessSync(_config.BrightnessSyncIntervalSeconds * 1000);
+            }
         }
 
         private string BuildTrayText()

@@ -10,6 +10,7 @@
 - 某个滑块设为 `1-100` 时，只调节对应灯，并自动换算为 ESPHome 的 `1-255` 亮度。
 - 滑块左侧显示每个灯的 emoji。
 - 右键托盘图标：配置设备、实体、开机自动启动和退出。
+- 程序启动后会同步当前实体亮度，之后默认每 5 秒同步一次。
 
 ## 右键菜单
 
@@ -49,16 +50,17 @@ POST /light/<entity>/turn_off
 dotnet build -c Release
 ```
 
-本地自包含发布：
+本地发布：
 
 ```powershell
-dotnet publish ScreenGlow.csproj -c Release -r win-x64 --self-contained true -o publish\ScreenGlow
+dotnet build ScreenGlow.csproj -c Release -o publish\ScreenGlow
 ```
 
-发布产物为单个 exe，已包含 .NET Desktop Runtime，不需要在目标电脑另行安装 .NET：
+发布产物目标框架为 .NET Framework 4.8：
 
 ```text
 publish\ScreenGlow\ScreenGlow.exe
+publish\ScreenGlow\ScreenGlow.exe.config
 ```
 
 ## 自动发布
@@ -69,4 +71,4 @@ publish\ScreenGlow\ScreenGlow.exe
 .github/workflows/release.yml
 ```
 
-推送到 `main` 分支时会自动构建自包含 `win-x64` 版本，并上传带版本号的 `ScreenGlow-v*-win-x64.zip` 到 GitHub Release。发布包不会包含 PDB、日志或本地配置文件。
+推送到 `main` 分支时会自动构建 .NET Framework 4.8 版本，并上传带版本号的 `ScreenGlow-v*-net48.zip` 到 GitHub Release。发布包不会包含 PDB、日志或本地配置文件。

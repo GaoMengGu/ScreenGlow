@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text.Json;
+using System.Web.Script.Serialization;
 
 namespace ScreenGlow
 {
@@ -15,6 +15,7 @@ namespace ScreenGlow
         public Dictionary<string, string> LightDisplayNames { get; set; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         public Dictionary<string, int> EntityBrightnessPercent { get; set; } = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         public int RequestTimeoutMs { get; set; } = 2500;
+        public int BrightnessSyncIntervalSeconds { get; set; } = 5;
         public bool StartWithWindows { get; set; }
 
         public static string ConfigDirectory
@@ -42,7 +43,8 @@ namespace ScreenGlow
             try
             {
                 var json = File.ReadAllText(ConfigPath);
-                var config = JsonSerializer.Deserialize<AppConfig>(json);
+                var serializer = new JavaScriptSerializer();
+                var config = serializer.Deserialize<AppConfig>(json);
                 return config == null ? new AppConfig() : config.Normalize();
             }
             catch
@@ -59,10 +61,8 @@ namespace ScreenGlow
         public void Save()
         {
             Directory.CreateDirectory(ConfigDirectory);
-            var json = JsonSerializer.Serialize(Normalize(), new JsonSerializerOptions
-            {
-                WriteIndented = true
-            });
+            var serializer = new JavaScriptSerializer();
+            var json = serializer.Serialize(Normalize());
             File.WriteAllText(ConfigPath, json);
         }
 
@@ -78,6 +78,13 @@ namespace ScreenGlow
 
             var brightness255 = PercentToEspHomeBrightness(brightnessPercent);
             return new Uri(baseUri, "light/" + safeEntity + "/turn_on?brightness=" + brightness255);
+        }
+
+        public Uri BuildLightStateUri(string entity)
+        {
+            var baseUri = new Uri(NormalizedDeviceUrl());
+            var safeEntity = Uri.EscapeDataString(entity);
+            return new Uri(baseUri, "light/" + safeEntity);
         }
 
         public string EntitiesText
@@ -123,6 +130,7 @@ namespace ScreenGlow
                 .ToArray();
 
             RequestTimeoutMs = Math.Max(500, RequestTimeoutMs);
+            BrightnessSyncIntervalSeconds = Math.Max(2, BrightnessSyncIntervalSeconds);
 
             if (EntityBrightnessPercent == null)
             {

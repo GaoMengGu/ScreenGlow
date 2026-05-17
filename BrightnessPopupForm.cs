@@ -117,6 +117,22 @@ namespace ScreenGlow
             Activate();
         }
 
+        public void RefreshFromConfig()
+        {
+            if (InvokeRequired)
+            {
+                BeginInvoke(new Action(RefreshFromConfig));
+                return;
+            }
+
+            if (NeedsSliderRebuild())
+            {
+                BuildSliders();
+            }
+
+            SyncControlsFromConfig();
+        }
+
         protected override void OnDeactivate(EventArgs e)
         {
             base.OnDeactivate(e);
@@ -207,6 +223,26 @@ namespace ScreenGlow
             }
 
             _isSyncing = false;
+        }
+
+        private bool NeedsSliderRebuild()
+        {
+            _config.Normalize();
+
+            if (_sliders.Count != _config.LightEntities.Length)
+            {
+                return true;
+            }
+
+            foreach (var entity in _config.LightEntities)
+            {
+                if (!_sliders.ContainsKey(entity))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private void QueueSend(string entity)

@@ -1,20 +1,38 @@
 using System;
+using System.Threading;
 using System.Windows.Forms;
 
 namespace ScreenGlow
 {
     internal static class Program
     {
+        private const string SingleInstanceMutexName = "ScreenGlow_SingleInstance";
+        private static Mutex _singleInstanceMutex;
+
         [STAThread]
         private static void Main()
         {
-            Application.SetHighDpiMode(HighDpiMode.SystemAware);
+            bool createdNew;
+            _singleInstanceMutex = new Mutex(true, SingleInstanceMutexName, out createdNew);
+            if (!createdNew)
+            {
+                return;
+            }
+
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
 
-            using (var context = new TrayAppContext())
+            try
             {
-                Application.Run(context);
+                using (var context = new TrayAppContext())
+                {
+                    Application.Run(context);
+                }
+            }
+            finally
+            {
+                _singleInstanceMutex.ReleaseMutex();
+                _singleInstanceMutex.Dispose();
             }
         }
     }
